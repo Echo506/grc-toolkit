@@ -21,7 +21,7 @@ A full-stack GRC toolkit built in HTML/CSS/JS (no dependencies, no server). Desi
 ## Usage
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/iso27001-suite.git
+git clone https://github.com/Echo506/iso27001-suite.git
 cd iso27001-suite
 open index.html   # or just double-click it
 ```
