@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vendor Risk Assessment (TPRM) — ISO 27001 Suite</title>
+  <link rel="stylesheet" href="../css/styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <style>
+    .vendor-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1.25rem;
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .vendor-card:hover { border-color: var(--border2); }
+    .vendor-card.selected { border-color: var(--blue); }
+    .vendor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+    .score-ring { position: relative; width: 64px; height: 64px; }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500; }
+    .domain-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .domain-row:last-child { border-bottom: none; }
+    .domain-name { width: 200px; font-size: 13px; color: var(--text2); flex-shrink: 0; }
+    .domain-bar { flex: 1; }
+    .domain-score { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text3); width: 36px; text-align: right; flex-shrink: 0; }
+    .q-block { margin-bottom: 1.25rem; }
+    .q-label { font-size: 13px; color: var(--text2); margin-bottom: 8px; line-height: 1.5; }
+    .q-options { display: flex; gap: 6px; flex-wrap: wrap; }
+    .q-opt {
+      padding: 5px 14px; border-radius: 20px; font-size: 12px; cursor: pointer;
+      border: 1px solid var(--border); background: transparent; color: var(--text2);
+      transition: all 0.15s; font-family: 'IBM Plex Sans', sans-serif;
+    }
+    .q-opt:hover { background: var(--bg3); color: var(--text); }
+    .q-opt.sel-4 { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+    .q-opt.sel-3 { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+    .q-opt.sel-2 { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+    .q-opt.sel-1 { background: var(--coral-dim); border-color: var(--coral); color: var(--coral); }
+    .risk-tier { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .tier-LOW { background: var(--green-dim); color: var(--green); }
+    .tier-MEDIUM { background: var(--amber-dim); color: var(--amber); }
+    .tier-HIGH { background: var(--coral-dim); color: var(--coral); }
+    .tier-CRITICAL { background: rgba(255,68,68,0.2); color: #ff4444; }
+    .tab-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .tab { padding: 10px 18px; font-size: 13px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; font-family: 'IBM Plex Sans', sans-serif; transition: all 0.15s; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-bottom-color: var(--blue); }
+    .modal-bg { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; min-height: 600px; }
+    .modal-bg.open { display: flex; align-items: flex-start; justify-content: center; padding-top: 40px; }
+    .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 1.5rem; width: 540px; max-height: 80vh; overflow-y: auto; position: relative; }
+    .sig-domain { background: var(--bg3); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
+    .sig-domain-title { font-size: 12px; font-weight: 500; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  </style>
+</head>
+<body>
+<nav>
+  <a class="nav-brand" href="../index.html"><i class="ti ti-shield-lock"></i>ISO <span>27001</span></a>
+  <div class="nav-links">
+    <a href="../index.html"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span></a>
+    <a href="gap-analysis.html"><i class="ti ti-chart-dots"></i><span>Gap Analysis</span></a>
+    <a href="risk-management.html"><i class="ti ti-alert-triangle"></i><span>Risks</span></a>
+    <a href="audit.html"><i class="ti ti-clipboard-check"></i><span>Audit</span></a>
+    <a href="evidence.html"><i class="ti ti-folder-check"></i><span>Evidence</span></a>
+    <a href="tprm.html" class="active"><i class="ti ti-building-store"></i><span>TPRM</span></a>
+    <a href="compliance.html"><i class="ti ti-layers-intersect"></i><span>Frameworks</span></a>
+    <a href="cloud-review.html"><i class="ti ti-cloud-lock"></i><span>Cloud</span></a>
+  </div>
+</nav>
+
+<main>
+  <div class="page-header">
+    <h1>Vendor Risk Assessment — TPRM</h1>
+    <p>Third-party risk management using SIG Lite methodology. Assess, score and track supplier security posture.</p>
+  </div>
+
+  <div class="tab-row">
+    <button class="tab active" onclick="switchTab('vendors')">Vendor registry</button>
+    <button class="tab" onclick="switchTab('assess')">Assessment</button>
+    <button class="tab" onclick="switchTab('reports')">Reports</button>
+  </div>
+
+  <div id="tab-vendors">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <div class="metrics-row" style="margin:0; flex:1; gap:8px;">
+        <div class="metric-card"><div class="metric-label">Total vendors</div><div class="metric-value" id="m-total">0</div></div>
+        <div class="metric-card"><div class="metric-label">High / Critical risk</div><div class="metric-value" id="m-high" style="color:var(--coral)">0</div></div>
+        <div class="metric-card"><div class="metric-label">Assessed</div><div class="metric-value" id="m-assessed" style="color:var(--green)">0</div></div>
+        <div class="metric-card"><div class="metric-label">Pending review</div><div class="metric-value" id="m-pending" style="color:var(--amber)">0</div></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-left:1rem;">
+        <button class="btn" onclick="exportVendors()"><i class="ti ti-download"></i> Export CSV</button>
+        <button class="btn btn-primary" onclick="openNewVendor()"><i class="ti ti-plus"></i> Add vendor</button>
+      </div>
+    </div>
+    <div class="vendor-grid" id="vendor-grid"></div>
+    <p id="vendor-empty" style="color:var(--text3); font-size:13px; text-align:center; padding:3rem;">No vendors yet. Add your first vendor to start assessing.</p>
+  </div>
+
+  <div id="tab-assess" style="display:none;">
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-title">Select vendor to assess</div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <select id="assess-vendor-select" style="flex:1;" onchange="loadVendorAssessment()">
+          <option value="">— Select a vendor —</option>
+        </select>
+        <button class="btn btn-primary" onclick="saveAssessment()"><i class="ti ti-device-floppy"></i> Save assessment</button>
+      </div>
+    </div>
+    <div id="assessment-form" style="display:none;">
+      <div id="sig-domains"></div>
+    </div>
+    <p id="assess-placeholder" style="color:var(--text3); font-size:13px; text-align:center; padding:3rem;">Select a vendor above to begin the SIG Lite assessment.</p>
+  </div>
+
+  <div id="tab-reports" style="display:none;">
+    <div id="report-select-wrap" style="margin-bottom:1.5rem;">
+      <select id="report-vendor-select" style="width:300px;" onchange="renderReport()">
+        <option value="">— Select a vendor to view report —</option>
+      </select>
+    </div>
+    <div id="report-content"></div>
+  </div>
+</main>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal" id="modal-inner">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <span style="font-size:15px; font-weight:500; color:var(--text)">Add vendor</span>
+      <button class="btn" onclick="closeModal()" style="padding:6px 10px;"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;"><label style="font-size:12px;color:var(--text3)">Vendor name</label><input type="text" id="v-name" placeholder="Acme Cloud Services" style="width:100%"></div>
+    <div class="grid-2" style="gap:10px; margin-bottom:10px;">
+      <div class="form-group"><label style="font-size:12px;color:var(--text3)">Category</label>
+        <select id="v-category" style="width:100%">
+          <option>Cloud / SaaS</option><option>IT Infrastructure</option><option>Data Processing</option>
+          <option>Professional Services</option><option>HR / Payroll</option><option>Financial Services</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label style="font-size:12px;color:var(--text3)">Criticality</label>
+        <select id="v-criticality" style="width:100%">
+          <option value="critical">Critical</option><option value="high">High</option>
+          <option value="medium" selected>Medium</option><option value="low">Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2" style="gap:10px; margin-bottom:10px;">
+      <div class="form-group"><label style="font-size:12px;color:var(--text3)">Contact name</label><input type="text" id="v-contact" placeholder="Jane Smith" style="width:100%"></div>
+      <div class="form-group"><label style="font-size:12px;color:var(--text3)">Contact email</label><input type="text" id="v-email" placeholder="jane@vendor.com" style="width:100%"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px;"><label style="font-size:12px;color:var(--text3)">Data classification handled</label>
+      <select id="v-data" style="width:100%">
+        <option>Public</option><option>Internal</option><option>Confidential</option>
+          <option>Restricted / PII</option><option>PHI / Health data</option><option>PCI / Cardholder data</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:1rem;"><label style="font-size:12px;color:var(--text3)">Notes</label><textarea id="v-notes" rows="2" placeholder="Services provided, scope..." style="width:100%"></textarea></div>
+    <button class="btn btn-primary" onclick="saveVendor()" style="width:100%"><i class="ti ti-plus"></i> Add vendor</button>
+  </div>
+</div>
+
+<script>
+const SIG_DOMAINS = [
+  { id:'AC', name:'Access control', icon:'ti-lock', questions:[
+    'Are access controls enforced using the principle of least privilege?',
+    'Is multi-factor authentication (MFA) required for privileged accounts?',
+    'Are access rights reviewed at least annually?',
+    'Is there a formal access provisioning and de-provisioning process?',
+  ]},
+  { id:'RM', name:'Risk management', icon:'ti-alert-triangle', questions:[
+    'Is there a formal information security risk assessment process?',
+    'Are risks reviewed and updated at least annually?',
+    'Is there a risk treatment plan with assigned owners?',
+  ]},
+  { id:'DP', name:'Data protection', icon:'ti-database-lock', questions:[
+    'Is sensitive data encrypted at rest using industry-standard algorithms?',
+    'Is data encrypted in transit (TLS 1.2+)?',
+    'Is there a data classification and handling policy?',
+    'Is personal data (PII/PHI) identified and managed per applicable regulations?',
+  ]},
+  { id:'IS', name:'Incident response', icon:'ti-alert-circle', questions:[
+    'Is there a documented incident response plan?',
+    'Are incidents logged, tracked and reviewed?',
+    'Are clients/stakeholders notified of breaches within required timeframes?',
+    'Is the incident response plan tested at least annually?',
+  ]},
+  { id:'BCP', name:'Business continuity', icon:'ti-refresh', questions:[
+    'Is there a documented business continuity and disaster recovery plan?',
+    'Are BCP/DR plans tested at least annually?',
+    'Are recovery time objectives (RTO) and recovery point objectives (RPO) defined?',
+  ]},
+  { id:'VM', name:'Vulnerability management', icon:'ti-bug', questions:[
+    'Is there a formal vulnerability scanning and patching program?',
+    'Are critical vulnerabilities remediated within 30 days?',
+    'Are penetration tests conducted at least annually?',
+  ]},
+  { id:'HR', name:'Human resources security', icon:'ti-users', questions:[
+    'Are background checks performed on employees handling sensitive data?',
+    'Do employees complete security awareness training at least annually?',
+    'Are security responsibilities included in employment contracts?',
+  ]},
+  { id:'PM', name:'Physical & environmental security', icon:'ti-building', questions:[
+    'Are data centres and server rooms physically secured?',
+    'Is visitor access to sensitive areas controlled and logged?',
+    'Are clean desk and screen lock policies enforced?',
+  ]},
+  { id:'CM', name:'Change & configuration management', icon:'ti-settings', questions:[
+    'Is there a formal change management process for IT systems?',
+    'Are production systems protected from unauthorized changes?',
+    'Are configuration baselines defined and monitored?',
+  ]},
+  { id:'TP', name:'Third-party management', icon:'ti-building-store', questions:[
+    'Are sub-processors/sub-contractors assessed before engagement?',
+    'Are security requirements included in vendor contracts?',
+    'Are third-party assessments (SOC 2, ISO 27001) reviewed periodically?',
+  ]},
+];
+
+const SCORE_LABELS = { 4:'Fully implemented', 3:'Largely implemented', 2:'Partially implemented', 1:'Not implemented' };
+
+let vendors = JSON.parse(localStorage.getItem('tprm_vendors') || '[]');
+let assessments = JSON.parse(localStorage.getItem('tprm_assessments') || '{}');
+let vCounter = vendors.length;
+
+function switchTab(tab) {
+  ['vendors','assess','reports'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===tab?'block':'none';
+    document.querySelectorAll('.tab')[['vendors','assess','reports'].indexOf(t)].classList.toggle('active', t===tab);
+  });
+  if (tab==='assess'||tab==='reports') populateVendorSelects();
+}
+
+function openNewVendor() { document.getElementById('modal-bg').classList.add('open'); }
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
+
+function saveVendor() {
+  const name = document.getElementById('v-name').value.trim();
+  if (!name) { alert('Vendor name is required.'); return; }
+  vendors.push({
+    id: 'V-'+String(++vCounter).padStart(3,'0'),
+    name, category: document.getElementById('v-category').value,
+    criticality: document.getElementById('v-criticality').value,
+    contact: document.getElementById('v-contact').value.trim(),
+    email: document.getElementById('v-email').value.trim(),
+    data: document.getElementById('v-data').value,
+    notes: document.getElementById('v-notes').value.trim(),
+    added: new Date().toLocaleDateString('en-US')
+  });
+  localStorage.setItem('tprm_vendors', JSON.stringify(vendors));
+  document.getElementById('v-name').value=''; document.getElementById('v-contact').value='';
+  document.getElementById('v-email').value=''; document.getElementById('v-notes').value='';
+  closeModal(); renderVendors();
+}
+
+function getScore(vid) {
+  const a = assessments[vid];
+  if (!a) return null;
+  let total=0, count=0;
+  SIG_DOMAINS.forEach(d => d.questions.forEach((q,i) => {
+    const v = a[d.id+'-'+i];
+    if (v) { total+=v; count++; }
+  }));
+  if (!count) return null;
+  return Math.round((total/count/4)*100);
+}
+
+function scoreColor(s) {
+  if (s===null) return 'var(--text3)';
+  if (s>=75) return 'var(--green)';
+  if (s>=50) return 'var(--amber)';
+  if (s>=25) return 'var(--coral)';
+  return '#ff4444';
+}
+
+function getTier(s, criticality) {
+  if (s===null) return 'PENDING';
+  const base = s>=75?'LOW':s>=50?'MEDIUM':s>=25?'HIGH':'CRITICAL';
+  if (criticality==='critical' && base==='LOW') return 'MEDIUM';
+  if (criticality==='critical' && base==='MEDIUM') return 'HIGH';
+  return base;
+}
+
+function renderVendors() {
+  const grid = document.getElementById('vendor-grid');
+  const empty = document.getElementById('vendor-empty');
+  if (!vendors.length) { grid.innerHTML=''; empty.style.display='block'; updateMetrics(); return; }
+  empty.style.display='none';
+  grid.innerHTML = vendors.map(v => {
+    const score = getScore(v.id);
+    const tier = getTier(score, v.criticality);
+    const sc = scoreColor(score);
+    const pct = score ?? 0;
+    const circumference = 2*Math.PI*26;
+    const dash = circumference*(1-pct/100);
+    return `<div class="vendor-card ${tier==='CRITICAL'||tier==='HIGH'?'':''}">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+        <div>
+          <div style="font-size:14px; font-weight:500; color:var(--text); margin-bottom:3px;">${v.name}</div>
+          <div style="font-size:11px; color:var(--text3);">${v.category}</div>
+        </div>
+        <div class="score-ring">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="var(--bg3)" stroke-width="5"/>
+            <circle cx="32" cy="32" r="26" fill="none" stroke="${sc}" stroke-width="5"
+              stroke-dasharray="${circumference}" stroke-dashoffset="${dash}" stroke-linecap="round"/>
+          </svg>
+          <div class="score-val" style="color:${sc}">${score!==null?score+'%':'—'}</div>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span class="badge ${v.criticality==='critical'?'badge-coral':v.criticality==='high'?'badge-amber':v.criticality==='medium'?'badge-blue':'badge-gray'}">${v.criticality} criticality</span>
+        ${tier!=='PENDING'?`<span class="risk-tier tier-${tier}">${tier}</span>`:`<span style="font-size:11px;color:var(--text3)">Not assessed</span>`}
+      </div>
+      <div style="font-size:11px; color:var(--text3); margin-bottom:10px;">${v.data}</div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn" style="flex:1; font-size:12px; padding:6px;" onclick="startAssessment('${v.id}')"><i class="ti ti-clipboard-list"></i> Assess</button>
+        <button class="btn" style="font-size:12px; padding:6px 10px;" onclick="deleteVendor('${v.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+  updateMetrics();
+}
+
+function updateMetrics() {
+  document.getElementById('m-total').textContent = vendors.length;
+  const assessed = vendors.filter(v => getScore(v.id)!==null);
+  document.getElementById('m-assessed').textContent = assessed.length;
+  document.getElementById('m-pending').textContent = vendors.length - assessed.length;
+  const highRisk = vendors.filter(v => { const t=getTier(getScore(v.id),v.criticality); return t==='HIGH'||t==='CRITICAL'; }).length;
+  document.getElementById('m-high').textContent = highRisk;
+}
+
+function deleteVendor(id) {
+  if (!confirm('Delete this vendor?')) return;
+  vendors = vendors.filter(v=>v.id!==id);
+  delete assessments[id];
+  localStorage.setItem('tprm_vendors', JSON.stringify(vendors));
+  localStorage.setItem('tprm_assessments', JSON.stringify(assessments));
+  renderVendors();
+}
+
+function startAssessment(vid) {
+  switchTab('assess');
+  setTimeout(()=>{
+    document.getElementById('assess-vendor-select').value = vid;
+    loadVendorAssessment();
+  },50);
+}
+
+function populateVendorSelects() {
+  ['assess-vendor-select','report-vendor-select'].forEach(id => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Select a vendor —</option>' + vendors.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
+    if (cur) sel.value=cur;
+  });
+}
+
+function loadVendorAssessment() {
+  const vid = document.getElementById('assess-vendor-select').value;
+  const form = document.getElementById('assessment-form');
+  const ph = document.getElementById('assess-placeholder');
+  if (!vid) { form.style.display='none'; ph.style.display='block'; return; }
+  ph.style.display='none'; form.style.display='block';
+  const a = assessments[vid]||{};
+  document.getElementById('sig-domains').innerHTML = SIG_DOMAINS.map(d=>`
+    <div class="sig-domain">
+      <div class="sig-domain-title"><i class="ti ${d.icon}" style="font-size:14px;"></i>${d.name} (${d.id})</div>
+      ${d.questions.map((q,i)=>`
+        <div class="q-block">
+          <div class="q-label">${i+1}. ${q}</div>
+          <div class="q-options">
+            ${[4,3,2,1].map(sc=>`<button class="q-opt ${a[d.id+'-'+i]===sc?'sel-'+sc:''}" onclick="setAnswer('${vid}','${d.id}',${i},${sc})">${SCORE_LABELS[sc]}</button>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function setAnswer(vid, domain, qIdx, score) {
+  if (!assessments[vid]) assessments[vid]={};
+  const key = domain+'-'+qIdx;
+  if (assessments[vid][key]===score) delete assessments[vid][key];
+  else assessments[vid][key]=score;
+  loadVendorAssessment();
+}
+
+function saveAssessment() {
+  localStorage.setItem('tprm_assessments', JSON.stringify(assessments));
+  renderVendors();
+  alert('Assessment saved.');
+}
+
+function renderReport() {
+  const vid = document.getElementById('report-vendor-select').value;
+  const wrap = document.getElementById('report-content');
+  if (!vid) { wrap.innerHTML=''; return; }
+  const v = vendors.find(x=>x.id===vid);
+  const score = getScore(vid);
+  const tier = getTier(score, v.criticality);
+  const a = assessments[vid]||{};
+  const domainScores = SIG_DOMAINS.map(d=>{
+    let tot=0, cnt=0;
+    d.questions.forEach((q,i)=>{ const val=a[d.id+'-'+i]; if(val){tot+=val;cnt++;} });
+    return { ...d, score: cnt?Math.round((tot/cnt/4)*100):null, answered:cnt, total:d.questions.length };
+  });
+  const circumference = 2*Math.PI*50;
+  const pct = score??0;
+  const dash = circumference*(1-pct/100);
+  const sc = scoreColor(score);
+  wrap.innerHTML = `
+    <div class="card" style="margin-bottom:1rem;">
+      <div style="display:flex; align-items:center; gap:1.5rem;">
+        <div class="score-ring" style="width:110px;height:110px;">
+          <svg width="110" height="110" viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r="50" fill="none" stroke="var(--bg3)" stroke-width="7" transform="rotate(-90 55 55)"/>
+            <circle cx="55" cy="55" r="50" fill="none" stroke="${sc}" stroke-width="7"
+              stroke-dasharray="${circumference}" stroke-dashoffset="${dash}" stroke-linecap="round" transform="rotate(-90 55 55)"/>
+          </svg>
+          <div class="score-val" style="color:${sc}; font-size:22px;">${score!==null?score+'%':'N/A'}</div>
+        </div>
+        <div>
+          <div style="font-size:18px; font-weight:500; color:var(--text); margin-bottom:4px;">${v.name}</div>
+          <div style="font-size:13px; color:var(--text3); margin-bottom:8px;">${v.category} · ${v.data}</div>
+          ${tier!=='PENDING'?`<span class="risk-tier tier-${tier}" style="font-size:13px;">${tier} RISK</span>`:``}
+        </div>
+        <div style="margin-left:auto; text-align:right;">
+          <div style="font-size:11px; color:var(--text3); margin-bottom:4px;">Contact</div>
+          <div style="font-size:13px; color:var(--text2);">${v.contact||'—'}</div>
+          <div style="font-size:12px; color:var(--blue);">${v.email||''}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:8px;">Added ${v.added}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Domain scores</div>
+      ${domainScores.map(d=>`
+        <div class="domain-row">
+          <div class="domain-name"><i class="ti ${d.icon}" style="font-size:13px; margin-right:6px;"></i>${d.name}</div>
+          <div class="domain-bar">
+            <div class="progress-wrap"><div class="progress-fill" style="width:${d.score??0}%; background:${scoreColor(d.score)}"></div></div>
+          </div>
+          <div class="domain-score">${d.score!==null?d.score+'%':d.answered+'/'+d.total+' Q'}</div>
+        </div>`).join('')}
+      <div style="margin-top:1.5rem; display:flex; gap:8px;">
+        <button class="btn" onclick="exportReport('${vid}')"><i class="ti ti-download"></i> Export report CSV</button>
+      </div>
+    </div>`;
+}
+
+function exportReport(vid) {
+  const v = vendors.find(x=>x.id===vid);
+  const a = assessments[vid]||{};
+  let csv = 'Domain,Question,Score,Label\n';
+  SIG_DOMAINS.forEach(d=>d.questions.forEach((q,i)=>{
+    const s = a[d.id+'-'+i]||0;
+    csv += `"${d.name}","${q}",${s},"${s?SCORE_LABELS[s]:'Not answered'}"\n`;
+  }));
+  const a2 = document.createElement('a');
+  a2.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a2.download=`tprm-${v.name.replace(/\s/g,'-')}.csv`;
+  a2.click();
+}
+
+function exportVendors() {
+  let csv = 'ID,Name,Category,Criticality,Data classification,Score,Risk tier,Contact,Email,Added\n';
+  vendors.forEach(v=>{
+    const s=getScore(v.id);
+    csv+=`"${v.id}","${v.name}","${v.category}","${v.criticality}","${v.data}","${s??'N/A'}","${getTier(s,v.criticality)}","${v.contact}","${v.email}","${v.added}"\n`;
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='tprm-vendor-registry.csv';
+  a.click();
+}
+
+document.getElementById('modal-bg').addEventListener('click', e=>{ if(e.target===document.getElementById('modal-bg')) closeModal(); });
+renderVendors();
+</script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Security Architecture Review — ISO 27001 Suite</title>
+  <link rel="stylesheet" href="../css/styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <style>
+    .provider-selector { display:flex; gap:8px; margin-bottom:1.5rem; }
+    .provider-btn { padding:8px 20px; border-radius:var(--radius); border:1px solid var(--border); background:transparent; color:var(--text2); font-size:13px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; transition:all 0.15s; display:flex; align-items:center; gap:8px; }
+    .provider-btn:hover { background:var(--bg3); color:var(--text); }
+    .provider-btn.active { border-color:var(--blue); color:var(--blue); background:var(--blue-dim); }
+    .domain-panel { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:1rem; overflow:hidden; }
+    .domain-header { display:flex; align-items:center; gap:12px; padding:14px 16px; cursor:pointer; transition:background 0.15s; }
+    .domain-header:hover { background:rgba(255,255,255,0.02); }
+    .domain-title { font-size:14px; font-weight:500; color:var(--text); flex:1; }
+    .domain-score-pill { font-family:'IBM Plex Mono',monospace; font-size:12px; padding:3px 10px; border-radius:20px; }
+    .domain-body { border-top:1px solid var(--border); padding:0 16px 16px; }
+    .check-item { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .check-item:last-child { border-bottom:none; }
+    .check-text { flex:1; }
+    .check-title { font-size:13px; color:var(--text); margin-bottom:2px; }
+    .check-desc { font-size:12px; color:var(--text3); line-height:1.5; }
+    .check-ref { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--blue); margin-top:3px; }
+    .finding-tag { padding:4px 12px; border-radius:20px; font-size:11px; cursor:pointer; border:none; font-family:'IBM Plex Sans',sans-serif; font-weight:500; white-space:nowrap; }
+    .f-pass { background:var(--green-dim); color:var(--green); }
+    .f-fail { background:var(--coral-dim); color:var(--coral); }
+    .f-partial { background:var(--amber-dim); color:var(--amber); }
+    .f-na { background:var(--blue-dim); color:var(--blue); }
+    .f-none { background:rgba(255,255,255,0.05); color:var(--text3); }
+    .risk-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:500; }
+    .r-CRITICAL { background:rgba(255,68,68,0.2); color:#ff4444; }
+    .r-HIGH { background:var(--coral-dim); color:var(--coral); }
+    .r-MEDIUM { background:var(--amber-dim); color:var(--amber); }
+    .r-LOW { background:var(--green-dim); color:var(--green); }
+    .radar-wrap { display:flex; justify-content:center; padding:1rem 0; }
+  </style>
+</head>
+<body>
+<nav>
+  <a class="nav-brand" href="../index.html"><i class="ti ti-shield-lock"></i>ISO <span>27001</span></a>
+  <div class="nav-links">
+    <a href="../index.html"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span></a>
+    <a href="gap-analysis.html"><i class="ti ti-chart-dots"></i><span>Gap Analysis</span></a>
+    <a href="risk-management.html"><i class="ti ti-alert-triangle"></i><span>Risks</span></a>
+    <a href="audit.html"><i class="ti ti-clipboard-check"></i><span>Audit</span></a>
+    <a href="evidence.html"><i class="ti ti-folder-check"></i><span>Evidence</span></a>
+    <a href="tprm.html"><i class="ti ti-building-store"></i><span>TPRM</span></a>
+    <a href="compliance.html"><i class="ti ti-layers-intersect"></i><span>Frameworks</span></a>
+    <a href="cloud-review.html" class="active"><i class="ti ti-cloud-lock"></i><span>Cloud</span></a>
+  </div>
+</nav>
+
+<main>
+  <div class="page-header">
+    <h1>Cloud security architecture review</h1>
+    <p>Structured assessment across CCSP domains for AWS, Azure and GCP environments. Identify risks and generate findings.</p>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+    <div class="provider-selector">
+      <button class="provider-btn active" onclick="setProvider('AWS',this)"><i class="ti ti-brand-aws" style="font-size:18px;"></i> AWS</button>
+      <button class="provider-btn" onclick="setProvider('Azure',this)"><i class="ti ti-brand-azure" style="font-size:18px;"></i> Azure</button>
+      <button class="provider-btn" onclick="setProvider('GCP',this)"><i class="ti ti-brand-google" style="font-size:18px;"></i> GCP</button>
+      <button class="provider-btn" onclick="setProvider('Multi',this)"><i class="ti ti-layers-intersect" style="font-size:16px;"></i> Multi-cloud</button>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn" onclick="exportFindings()"><i class="ti ti-download"></i> Export findings</button>
+      <button class="btn btn-primary" onclick="generateReport()"><i class="ti ti-report"></i> Generate report ↗</button>
+    </div>
+  </div>
+
+  <div class="metrics-row" id="cloud-metrics" style="margin-bottom:1.5rem;"></div>
+
+  <div class="grid-2" style="margin-bottom:1.5rem; align-items:start;">
+    <div class="card">
+      <div class="card-title">Domain risk coverage</div>
+      <canvas id="radarChart" width="300" height="280"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Critical findings</div>
+      <div id="critical-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <p id="no-critical" style="color:var(--text3);font-size:13px;">No critical or high findings yet.</p>
+    </div>
+  </div>
+
+  <div id="domains-container"></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let currentProvider = 'AWS';
+let radarChart = null;
+
+const CCSP_DOMAINS = [
+  {
+    id:'D1', name:'Cloud data security', icon:'ti-database-lock', ccsp:'Domain 2',
+    checks:[
+      { id:'D1-1', title:'Data classification policy exists', desc:'Data is classified by sensitivity and tagged at creation.', risk:'HIGH', aws:'S3 tags / Macie', azure:'Purview', gcp:'DLP API' },
+      { id:'D1-2', title:'Encryption at rest enforced', desc:'All storage services enforce server-side encryption with customer-managed keys where applicable.', risk:'CRITICAL', aws:'KMS + S3 SSE-KMS', azure:'Azure Key Vault', gcp:'CMEK' },
+      { id:'D1-3', title:'Encryption in transit (TLS 1.2+)', desc:'All data in transit uses TLS 1.2 or higher. Older protocols disabled.', risk:'HIGH', aws:'ALB policies', azure:'App Gateway TLS', gcp:'Cloud Armor' },
+      { id:'D1-4', title:'Data residency requirements defined', desc:'Data storage regions comply with regulatory requirements (GDPR, etc.)', risk:'MEDIUM', aws:'S3 bucket regions', azure:'Azure Geo', gcp:'Location policies' },
+      { id:'D1-5', title:'DLP controls implemented', desc:'Data loss prevention solutions are deployed and alerting on sensitive data egress.', risk:'HIGH', aws:'Macie + GuardDuty', azure:'Purview DLP', gcp:'Cloud DLP' },
+    ]
+  },
+  {
+    id:'D2', name:'Cloud infrastructure security', icon:'ti-server', ccsp:'Domain 3',
+    checks:[
+      { id:'D2-1', title:'Network segmentation (VPC/VNet)', desc:'Workloads are isolated in separate VPCs/VNets with restrictive security groups.', risk:'CRITICAL', aws:'VPC + SG + NACL', azure:'VNet + NSG', gcp:'VPC + Firewall' },
+      { id:'D2-2', title:'Internet exposure minimised', desc:'No resources have unnecessary public IPs. Bastion hosts or VPN required for admin access.', risk:'HIGH', aws:'No public EC2', azure:'Private endpoints', gcp:'IAP tunnels' },
+      { id:'D2-3', title:'Infrastructure as Code (IaC)', desc:'Infrastructure is defined and deployed via IaC (Terraform, CDK, Bicep) with version control.', risk:'MEDIUM', aws:'CDK / CloudFormation', azure:'Bicep / ARM', gcp:'Terraform / Deployment Manager' },
+      { id:'D2-4', title:'Vulnerability scanning enabled', desc:'Container images and compute resources are scanned for vulnerabilities continuously.', risk:'HIGH', aws:'Inspector v2', azure:'Defender for Cloud', gcp:'Artifact Analysis' },
+      { id:'D2-5', title:'Patch management process active', desc:'OS and software patches applied within defined SLAs (critical: 30 days).', risk:'HIGH', aws:'SSM Patch Manager', azure:'Update Management', gcp:'OS Config' },
+    ]
+  },
+  {
+    id:'D3', name:'Identity & access management', icon:'ti-user-shield', ccsp:'Domain 1',
+    checks:[
+      { id:'D3-1', title:'Principle of least privilege enforced', desc:'IAM roles/policies grant minimum permissions. No use of AdministratorAccess for workloads.', risk:'CRITICAL', aws:'IAM Analyzer', azure:'Entra PIM', gcp:'IAM Recommender' },
+      { id:'D3-2', title:'MFA required for all human accounts', desc:'MFA enforced for console/portal access. Hardware MFA for root/global admin accounts.', risk:'CRITICAL', aws:'IAM MFA policy', azure:'Conditional Access', gcp:'Org Policy' },
+      { id:'D3-3', title:'Service account key rotation', desc:'Service accounts use short-lived credentials or workload identity federation, not static keys.', risk:'HIGH', aws:'IAM roles / no static keys', azure:'Managed Identity', gcp:'Workload Identity' },
+      { id:'D3-4', title:'Privileged access reviewed quarterly', desc:'Privileged roles reviewed and recertified at least quarterly.', risk:'MEDIUM', aws:'Access Advisor', azure:'Access Reviews', gcp:'IAM audit logs' },
+      { id:'D3-5', title:'SSO / federated identity used', desc:'Cloud access federated through corporate IdP (Okta, AAD, etc.) — no local cloud user accounts.', risk:'MEDIUM', aws:'IAM Identity Center', azure:'Entra ID', gcp:'Cloud Identity' },
+    ]
+  },
+  {
+    id:'D4', name:'Cloud application security', icon:'ti-code', ccsp:'Domain 4',
+    checks:[
+      { id:'D4-1', title:'Secrets management solution', desc:'Application secrets (API keys, DB passwords) stored in a vault, not in code or env vars.', risk:'CRITICAL', aws:'Secrets Manager', azure:'Key Vault', gcp:'Secret Manager' },
+      { id:'D4-2', title:'SAST/DAST in CI/CD pipeline', desc:'Static and dynamic application security testing automated in the deployment pipeline.', risk:'HIGH', aws:'CodeGuru', azure:'Defender DevOps', gcp:'Cloud Build + tools' },
+      { id:'D4-3', title:'Container image scanning', desc:'All container images scanned before deployment. Only approved base images used.', risk:'HIGH', aws:'ECR scanning', azure:'ACR scanning', gcp:'Artifact Registry' },
+      { id:'D4-4', title:'WAF deployed for public apps', desc:'Web Application Firewall protects all public-facing web applications.', risk:'HIGH', aws:'AWS WAF', azure:'Front Door WAF', gcp:'Cloud Armor' },
+      { id:'D4-5', title:'Dependency/SCA scanning', desc:'Third-party library vulnerabilities tracked via SCA tool.', risk:'MEDIUM', aws:'Inspector + ECR', azure:'Defender for DevOps', gcp:'Artifact Analysis' },
+    ]
+  },
+  {
+    id:'D5', name:'Cloud security operations', icon:'ti-activity', ccsp:'Domain 5',
+    checks:[
+      { id:'D5-1', title:'Centralised logging & SIEM', desc:'All cloud logs (CloudTrail, Audit Logs) centralised and ingested into a SIEM.', risk:'HIGH', aws:'CloudTrail + Security Lake', azure:'Sentinel', gcp:'Chronicle / SIEM' },
+      { id:'D5-2', title:'Threat detection enabled', desc:'Cloud-native threat detection service active across all accounts/subscriptions.', risk:'HIGH', aws:'GuardDuty', azure:'Defender for Cloud', gcp:'Security Command Center' },
+      { id:'D5-3', title:'Alerts reviewed and triaged', desc:'Security alerts have defined owners, SLAs, and are reviewed within 24h.', risk:'HIGH', aws:'Security Hub', azure:'Defender for Cloud', gcp:'SCC findings' },
+      { id:'D5-4', title:'Cloud security posture (CSPM) tool', desc:'CSPM continuously monitors misconfigurations against CIS benchmarks.', risk:'MEDIUM', aws:'Security Hub + Config', azure:'Defender CSPM', gcp:'Security Health Analytics' },
+      { id:'D5-5', title:'Incident response runbooks exist', desc:'Cloud-specific IR runbooks documented for common attack scenarios.', risk:'MEDIUM', aws:'SSM Runbooks', azure:'Sentinel Playbooks', gcp:'Chronicle SOAR' },
+    ]
+  },
+  {
+    id:'D6', name:'Compliance & legal', icon:'ti-scale', ccsp:'Domain 6',
+    checks:[
+      { id:'D6-1', title:'Shared responsibility model documented', desc:'Organisation has documented what it is responsible for vs. the CSP for each service used.', risk:'MEDIUM', aws:'AWS SRM', azure:'Microsoft SRM', gcp:'GCP SRM' },
+      { id:'D6-2', title:'Cloud provider certifications verified', desc:'CSP compliance certifications (SOC 2, ISO 27001, PCI DSS) verified and up to date.', risk:'LOW', aws:'AWS Artifact', azure:'Microsoft Trust Center', gcp:'Compliance Reports' },
+      { id:'D6-3', title:'Data processing agreements in place', desc:'DPAs signed with CSP and any sub-processors handling personal data.', risk:'HIGH', aws:'AWS DPA', azure:'Microsoft DPA', gcp:'Google DPA' },
+      { id:'D6-4', title:'Cloud exit/portability strategy', desc:'Exit plan exists to migrate data out of the CSP without excessive cost or lock-in.', risk:'LOW', aws:'S3 + export tools', azure:'Azure Migrate', gcp:'Transfer Appliance' },
+    ]
+  },
+];
+
+const STATUS_CYCLE = ['none','pass','partial','fail','na'];
+const STATUS_LABELS = { none:'Not assessed', pass:'Pass', partial:'Partial', fail:'Fail', na:'N/A' };
+const STATUS_CLASS = { none:'f-none', pass:'f-pass', partial:'f-partial', fail:'f-fail', na:'f-na' };
+
+let findings = JSON.parse(localStorage.getItem('cloud_findings') || '{}');
+let expanded = {};
+
+function setProvider(p, btn) {
+  currentProvider = p;
+  document.querySelectorAll('.provider-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDomains();
+  updateMetrics();
+  updateChart();
+  updateCritical();
+}
+
+function key(checkId) { return currentProvider+'|'+checkId; }
+
+function cycleStatus(checkId) {
+  const k = key(checkId);
+  const cur = findings[k] || 'none';
+  findings[k] = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur)+1)%STATUS_CYCLE.length];
+  localStorage.setItem('cloud_findings', JSON.stringify(findings));
+  renderDomains();
+  updateMetrics();
+  updateChart();
+  updateCritical();
+}
+
+function getDomainScore(domain) {
+  const checks = domain.checks;
+  let pass=0, total=0;
+  checks.forEach(c => {
+    const s = findings[key(c.id)]||'none';
+    if (s!=='none'&&s!=='na') { total++; if(s==='pass') pass++; else if(s==='partial') pass+=0.5; }
+  });
+  return total ? Math.round(pass/total*100) : null;
+}
+
+function scoreStyle(s) {
+  if (s===null) return {color:'var(--text3)', bg:'rgba(255,255,255,0.05)'};
+  if (s>=75) return {color:'var(--green)', bg:'var(--green-dim)'};
+  if (s>=50) return {color:'var(--amber)', bg:'var(--amber-dim)'};
+  return {color:'var(--coral)', bg:'var(--coral-dim)'};
+}
+
+function renderDomains() {
+  document.getElementById('domains-container').innerHTML = CCSP_DOMAINS.map(d => {
+    const score = getDomainScore(d);
+    const st = scoreStyle(score);
+    const isOpen = expanded[d.id] !== false;
+    return `<div class="domain-panel">
+      <div class="domain-header" onclick="toggleDomain('${d.id}')">
+        <i class="ti ${d.icon}" style="font-size:18px; color:var(--text3);" aria-hidden="true"></i>
+        <span class="domain-title">${d.name}</span>
+        <span style="font-size:11px; color:var(--text3); margin-right:8px;">${d.ccsp}</span>
+        <span class="domain-score-pill" style="color:${st.color}; background:${st.bg}">${score!==null?score+'%':'—'}</span>
+        <i class="ti ${isOpen?'ti-chevron-up':'ti-chevron-down'}" style="font-size:14px; color:var(--text3); margin-left:8px;"></i>
+      </div>
+      ${isOpen?`<div class="domain-body">
+        ${d.checks.map(c => {
+          const s = findings[key(c.id)]||'none';
+          const ref = currentProvider==='Multi' ? `AWS: ${c.aws} / Azure: ${c.azure} / GCP: ${c.gcp}` :
+            currentProvider==='AWS' ? c.aws : currentProvider==='Azure' ? c.azure : c.gcp;
+          return `<div class="check-item">
+            <div class="check-text">
+              <div class="check-title">${c.title} <span class="risk-badge r-${c.risk}">${c.risk}</span></div>
+              <div class="check-desc">${c.desc}</div>
+              <div class="check-ref">${ref}</div>
+            </div>
+            <button class="finding-tag ${STATUS_CLASS[s]}" onclick="cycleStatus('${c.id}')">${STATUS_LABELS[s]}</button>
+          </div>`;
+        }).join('')}
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function toggleDomain(id) { expanded[id] = expanded[id]===false ? true : false; renderDomains(); }
+
+function updateMetrics() {
+  let total=0, pass=0, fail=0, critical=0;
+  CCSP_DOMAINS.forEach(d=>d.checks.forEach(c=>{
+    total++;
+    const s=findings[key(c.id)]||'none';
+    if(s==='pass') pass++;
+    if(s==='fail') fail++;
+    if(s==='fail'&&(c.risk==='CRITICAL'||c.risk==='HIGH')) critical++;
+  }));
+  const pct = total ? Math.round(pass/total*100) : 0;
+  document.getElementById('cloud-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Checks (${currentProvider})</div><div class="metric-value">${total}</div></div>
+    <div class="metric-card"><div class="metric-label">Pass</div><div class="metric-value" style="color:var(--green)">${pass}</div></div>
+    <div class="metric-card"><div class="metric-label">Fail</div><div class="metric-value" style="color:var(--coral)">${fail}</div></div>
+    <div class="metric-card"><div class="metric-label">Critical/High fails</div><div class="metric-value" style="color:#ff4444">${critical}</div></div>
+  `;
+}
+
+function updateChart() {
+  const scores = CCSP_DOMAINS.map(d=>getDomainScore(d)??0);
+  const labels = CCSP_DOMAINS.map(d=>d.name.split(' ').slice(0,2).join(' '));
+  const ctx = document.getElementById('radarChart').getContext('2d');
+  if (radarChart) radarChart.destroy();
+  radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [{
+        data: scores,
+        backgroundColor: 'rgba(74,158,255,0.15)',
+        borderColor: '#4a9eff',
+        borderWidth: 1.5,
+        pointBackgroundColor: '#4a9eff',
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        r: {
+          min: 0, max: 100,
+          ticks: { display: false, stepSize: 25 },
+          grid: { color: 'rgba(255,255,255,0.08)' },
+          angleLines: { color: 'rgba(255,255,255,0.08)' },
+          pointLabels: { color: '#8b90a0', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+function updateCritical() {
+  const crits = [];
+  CCSP_DOMAINS.forEach(d=>d.checks.forEach(c=>{
+    if((findings[key(c.id)]||'none')==='fail' && (c.risk==='CRITICAL'||c.risk==='HIGH')) {
+      crits.push({...c, domain:d.name});
+    }
+  }));
+  const list = document.getElementById('critical-list');
+  const empty = document.getElementById('no-critical');
+  if (!crits.length) { list.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  list.innerHTML = crits.slice(0,6).map(c=>`
+    <div style="display:flex; align-items:flex-start; gap:8px; padding:8px; background:var(--bg3); border-radius:var(--radius);">
+      <span class="risk-badge r-${c.risk}" style="margin-top:2px;">${c.risk}</span>
+      <div>
+        <div style="font-size:12px; font-weight:500; color:var(--text);">${c.title}</div>
+        <div style="font-size:11px; color:var(--text3);">${c.domain}</div>
+      </div>
+    </div>`).join('');
+}
+
+function exportFindings() {
+  let csv = 'Provider,Domain,Check,Risk,Status\n';
+  CCSP_DOMAINS.forEach(d=>d.checks.forEach(c=>{
+    const s=findings[key(c.id)]||'none';
+    csv+=`"${currentProvider}","${d.name}","${c.title}","${c.risk}","${STATUS_LABELS[s]}"\n`;
+  }));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`cloud-security-review-${currentProvider.toLowerCase()}.csv`;
+  a.click();
+}
+
+function generateReport() {
+  const fails = [];
+  CCSP_DOMAINS.forEach(d=>d.checks.forEach(c=>{
+    if((findings[key(c.id)]||'none')==='fail') fails.push(`${c.risk} risk — ${d.name}: ${c.title}`);
+  }));
+  const summary = fails.length
+    ? `Cloud security review for ${currentProvider} identified ${fails.length} failing control(s):\n${fails.map(f=>`- ${f}`).join('\n')}\nPlease help me draft an executive security architecture review report with recommendations for each finding.`
+    : `Cloud security review for ${currentProvider} completed. Please help me draft an executive summary report.`;
+  sendPrompt(summary);
+}
+
+function sendPrompt(msg) {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'sendPrompt', text: msg }, '*');
+  } else {
+    alert('Report prompt:\n\n'+msg);
+  }
+}
+
+CCSP_DOMAINS.forEach(d=>{ expanded[d.id]=true; });
+renderDomains();
+updateMetrics();
+updateChart();
+updateCritical();
+</script>
+</body>
+</html>
